@@ -1,0 +1,96 @@
+
+youtube video id: <input id="$query" onkeydown="if(event.which==13) executeQuery(this.value)" value="o268qbb_0BM"/> <button onclick="executeQuery($query.value)">get captions</button>
+<div id="$status"></div>
+
+<div>
+  <table>
+  	<tr>
+  		<td id="$manual"></td>
+  		<!-- <td id="$auto"></td> -->
+  		<td id="$diff"></td>
+  	</tr>
+  </table>
+</div>
+
+<script src="diff.js"></script>
+<script>
+
+async function executeQuery(videoId) {
+  $status.innerHTML = "loading...";
+  let captions = await getCaptions(videoId);
+  console.log(captions);
+  // $auto.innerText = captions.auto.toLowerCase().replace(/\.,\?!/g, "");
+  let a = captions.manual.toLowerCase().replace(/\.,\?!/g, "");
+  let b = captions.auto.toLowerCase().replace(/\.,\?!/g, "");
+  $manual.innerText = a;
+  let fragment = computeDiff(a, b);
+  $diff.innerHTML = '';
+  $diff.appendChild(fragment);
+  $status.innerHTML = "";
+}
+
+async function getCaptions(videoId) {
+  let videoInfoText = await fetch(`https://www.youtube.com/get_video_info?video_id=${videoId}`).then(r => r.text()).then(text => decodeURIComponent(decodeURIComponent(text)));
+  if(!videoInfoText.includes('captionTracks')) throw new Error(`Could not find captions for video: ${videoId}`);
+  let match = /({"captionTracks":.*isTranslatable":(true|false)}])/.exec(videoInfoText)[0];
+  let allCaptionTracks = JSON.parse(`${match}}`).captionTracks;
+  let tracks = {};
+  tracks.auto = allCaptionTracks.filter(o => o.vssId === "a.en")[0];
+  tracks.manual = allCaptionTracks.filter(o => o.vssId === ".en")[0];
+  if(!tracks.auto || !tracks.manual) throw new Error(`Video doesn't have both auto-generated and hand-written captions: ${videoId}`);
+  let captions = {};
+  captions.autoXml = await fetch(tracks.auto.baseUrl).then(r => r.text());
+  captions.manualXml = await fetch(tracks.manual.baseUrl).then(r => r.text());
+  captions.auto = [...new DOMParser().parseFromString(unescapeHtml(captions.autoXml), "text/html").querySelectorAll('transcript text')].map(el => el.textContent).join(" ").replace(/\s+/g, " ");
+  captions.manual = [...new DOMParser().parseFromString(unescapeHtml(captions.manualXml), "text/html").querySelectorAll('transcript text')].map(el => el.textContent).join(" ").replace(/\s+/g, " ");
+  return captions;
+}
+
+
+function unescapeHtml(html) {
+  let el = document.createElement('div');
+  return html.replace(/\&[#0-9a-z]+;/gi, enc => (el.innerHTML = enc, el.innerText));
+}
+
+
+function computeDiff(a, b) {
+	let diff = JsDiff.diffChars(a, b);
+	let fragment = document.createDocumentFragment();
+	for(let i=0; i < diff.length; i++) {
+
+		if(diff[i].added && diff[i + 1] && diff[i + 1].removed) {
+			let swap = diff[i];
+			diff[i] = diff[i + 1];
+			diff[i + 1] = swap;
+		}
+
+		let node;
+		if (diff[i].removed) {
+			node = document.createElement('del');
+			node.appendChild(document.createTextNode(diff[i].value));
+		} else if (diff[i].added) {
+			node = document.createElement('ins');
+			node.appendChild(document.createTextNode(diff[i].value));
+		} else {
+			node = document.createTextNode(diff[i].value);
+		}
+		fragment.appendChild(node);
+	}
+
+	return fragment;
+}
+</script>
+
+
+<style>
+del {
+	text-decoration: none;
+	color: #b30000;
+	background: #fadad7;
+}
+ins {
+	background: #eaf2c2;
+	color: #406619;
+	text-decoration: none;
+}
+</style>
