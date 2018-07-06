@@ -1,5 +1,5 @@
 
-youtube video id: <input id="$query" onkeydown="if(event.which==13) executeQuery(this.value)" value="o268qbb_0BM"/> <button onclick="executeQuery($query.value)">get captions</button>
+youtube video id: <input id="$query" onkeydown="if(event.which==13) executeQuery(this.value)" value="C6eOcd06kdk"/> <button onclick="executeQuery($query.value)">get captions</button>
 <div id="$status"></div>
 
 <div>
@@ -17,11 +17,12 @@ youtube video id: <input id="$query" onkeydown="if(event.which==13) executeQuery
 
 async function executeQuery(videoId) {
   $status.innerHTML = "loading...";
-  let captions = await getCaptions(videoId);
+  let captions;
+  try { captions = await getCaptions(videoId); } catch(e) { $status.innerHTML = e; return; }
   console.log(captions);
   // $auto.innerText = captions.auto.toLowerCase().replace(/\.,\?!/g, "");
-  let a = captions.manual.toLowerCase().replace(/\.,\?!/g, "");
-  let b = captions.auto.toLowerCase().replace(/\.,\?!/g, "");
+  let a = captions.manual.toLowerCase().replace(/[\.,\?!]/g, "");
+  let b = captions.auto.toLowerCase().replace(/[\.,\?!]/g, "");
   $manual.innerText = a;
   let fragment = computeDiff(a, b);
   $diff.innerHTML = '';
@@ -92,5 +93,11 @@ ins {
 	background: #eaf2c2;
 	color: #406619;
 	text-decoration: none;
+}
+td {
+  vertical-align: top;
+}
+body, body * {
+  font-family:monospace;
 }
 </style>
